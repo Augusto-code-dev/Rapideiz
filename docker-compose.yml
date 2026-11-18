@@ -1,0 +1,98 @@
+x-app: &app
+  image: ${COMPOSE_PROJECT_NAME}-app:local
+  restart: unless-stopped
+  environment:
+    MYSQL_HOST: mysql
+    MYSQL_PORT: 3306
+    MYSQL_DATABASE: ${MYSQL_DATABASE:-rapideiz}
+    MYSQL_USER: ${MYSQL_USER:-rapideiz}
+    MYSQL_PASSWORD: ${MYSQL_PASSWORD:-rapideiz123}
+    RABBITMQ_HOST: rabbitmq
+    RABBITMQ_PORT: 5672
+    RABBITMQ_USER: ${RABBITMQ_USER:-rapideiz}
+    RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rapideiz123}
+    PAYMENT_DELAY_SECONDS: ${PAYMENT_DELAY_SECONDS:-0.5}
+
+x-worker: &worker
+  <<: *app
+  pull_policy: never
+  depends_on:
+    api:
+      condition: service_healthy
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-rapideiz}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rapideiz123}
+    ports:
+      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-rapideiz}
+      MYSQL_USER: ${MYSQL_USER:-rapideiz}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-rapideiz123}
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3307}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysql --protocol=TCP -h 127.0.0.1 -u "$$MYSQL_USER" -p"$$MYSQL_PASSWORD" "$$MYSQL_DATABASE" -e 'SELECT 1'
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  api:
+    <<: *app
+    build: .
+    pull_policy: build
+    command: ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4)
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  payment:
+    <<: *worker
+    command: ["python", "-m", "workers.payment_worker"]
+
+  stock:
+    <<: *worker
+    command: ["python", "-m", "workers.stock_worker"]
+
+  notification:
+    <<: *worker
+    command: ["python", "-m", "workers.notification_worker"]
+
+volumes:
+  rabbitmq_data:
+  mysql_data:

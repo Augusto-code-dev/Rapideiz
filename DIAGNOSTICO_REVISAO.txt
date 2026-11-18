@@ -1,0 +1,119 @@
+DIAGNOSTICO DE REVISAO - RAPIDEIZ
+=================================
+
+Data da revisao: 17/11/2026
+Referencia usada: PDPC_Atividade04.pdf e requirements.txt
+
+VEREDITO RAPIDO
+---------------
+O projeto tem uma boa base e implementa os principais conceitos pedidos na
+atividade: API FastAPI, RabbitMQ, filas duraveis, eventos, workers separados,
+ACK manual, DLQ e processamento concorrente. Mesmo assim, eu nao entregaria
+o ZIP ainda. Ele esta funcional em conceito, mas precisa de ajustes de
+empacotamento, validacao ponta a ponta e algumas correcoes de comportamento.
+
+O QUE EU ENTENDI DO CODIGO
+--------------------------
+O sistema e um delivery chamado Rapideiz. O usuario monta um pedido no
+frontend e envia para a API. A API grava o pedido no MySQL e publica o evento
+pedido.criado no exchange topic rapideiz.events. Tres filas recebem esse
+evento:
+
+- rapideiz.payments: o worker de pagamento aprova ou recusa e publica
+  pagamento.aprovado ou pagamento.recusado;
+- rapideiz.stock: o worker separa o estoque;
+- rapideiz.notifications: o worker registra notificacoes para o pedido criado
+  e para os eventos de pagamento.
+
+As filas possuem Dead Letter Exchange e DLQs. O worker de pagamento permite
+simular falha tecnica ou recusa por limite insuficiente. O frontend tambem
+possui um botao para criar uma rajada de 10 pedidos e demonstrar consumers
+concorrentes.
+
+O QUE JA ATENDE A ATIVIDADE
+---------------------------
+[OK] API recebe pedido e responde HTTP 202 sem esperar os workers.
+[OK] Exchange topic, filas e bindings sao declarados explicitamente.
+[OK] Filas sao duraveis e mensagens usam delivery_mode=2.
+[OK] Consumidores usam auto_ack=False e basic_ack depois do processamento.
+[OK] Erros usam basic_nack(requeue=False), encaminhando mensagens para DLQ.
+[OK] Payment Worker publica eventos resultantes, formando a coreografia.
+[OK] prefetch_count=1 e mesma fila permitem competing consumers.
+[OK] README explica os cenarios de fluxo normal, queda, DLQ e escalabilidade.
+[OK] O codigo Python passou na compilacao sintatica com Python 3.10 quando
+     executado fora do ambiente virtual quebrado.
+
+PROBLEMAS QUE PRECISAM SER RESOLVIDOS ANTES DA ENTREGA
+------------------------------------------------------
+1. O README manda copiar .env.example, mas esse arquivo nao existe no pacote.
+   Criar .env.example com as variaveis do MySQL e RabbitMQ, sem senhas reais.
+
+2. A pasta .venv existente aponta para outro computador e outro usuario
+   (C:\\Users\\vinis...). Ela nao funciona nesta maquina. Nao incluir esse
+   ambiente no ZIP; recriar localmente ou documentar claramente a criacao do
+   ambiente a partir do requirements.txt.
+
+3. O status geral do pedido nunca e atualizado pelos workers. O campo status
+   fica em RECEBIDO, entao o contador "Em processamento" tende a permanecer
+   incorreto. Definir estados finais e atualizar status quando pagamento,
+   estoque e notificacao concluirem.
+
+4. Nao ha testes automatizados nem roteiro executavel de verificacao. Antes de
+   entregar, testar API, conexao com MySQL, conexao com RabbitMQ, fluxo normal,
+   queda de worker, DLQ e duas instancias do Payment Worker.
+
+5. A atividade exige mais que o ZIP: tambem exige video MP4 de 10 a 15 minutos
+   e relatorio tecnico executivo em PDF de ate 6 paginas. O relatorio precisa
+   conter diagrama, tabela de exchanges/filas, prints dos testes e comparacao
+   entre fluxo sincrono e mensageria assincrona. Esses materiais nao estao no
+   projeto revisado.
+
+6. A execucao real com Docker, MySQL e RabbitMQ nao foi comprovada neste
+   ambiente porque o comando docker compose nao esta disponivel. Portanto,
+   funcionamento ponta a ponta ainda precisa ser demonstrado na maquina de
+   entrega.
+
+MELHORIAS IMPORTANTES
+---------------------
+- Trocar Float por Decimal/Numeric para valores monetarios.
+- Validar e limpar campos antes de salvar; hoje textos compostos apenas por
+  espacos podem passar na validacao.
+- Escapar dados do cliente no frontend antes de inserir valores via innerHTML,
+  evitando XSS.
+- Nao confiar no preco enviado pelo navegador; calcular o preco no backend a
+  partir de um catalogo server-side.
+- Adicionar idempotencia nos workers para evitar efeitos duplicados quando uma
+  mensagem for reentregue.
+- Usar confirmacao de publicacao/outbox para reduzir o risco de gravar o pedido
+  no banco e falhar entre a gravacao e a publicacao no RabbitMQ.
+- Evitar devolver a excecao interna completa na resposta HTTP 503.
+- Adicionar healthcheck/documentacao de inicializacao mais automatizada e
+  registrar versao de Python suportada.
+
+CHECKLIST FINAL DE ENTREGA
+--------------------------
+[ ] Criar .env.example e revisar o README.
+[ ] Remover o .venv quebrado do pacote e testar instalacao limpa.
+[ ] Corrigir o ciclo de vida do campo status no dashboard.
+[ ] Rodar Docker, API e os tres workers em uma maquina limpa.
+[ ] Gravar evidencia do fluxo normal e da coreografia.
+[ ] Gravar evidencia da fila acumulando durante a queda de um worker.
+[ ] Gravar evidencia do encaminhamento para DLQ.
+[ ] Gravar evidencia de duas instancias dividindo 8 a 10 pedidos.
+[ ] Montar o relatorio PDF com diagrama, tabela e prints.
+[ ] Gravar o video MP4 de 10 a 15 minutos com participacao do grupo.
+[ ] Montar o ZIP final apenas com codigo, README, requirements.txt e arquivos
+    necessarios para executar o projeto.
+
+CONCLUSAO
+----------
+A arquitetura esta coerente com a proposta da atividade e provavelmente
+consegue demonstrar os conceitos principais. A classificacao atual e:
+
+    BASE TECNICA:      BOA
+    PRONTA PARA RODAR: PARCIAL - depende de ambiente configurado
+    PRONTA PARA ZIP:   AINDA NAO
+    PRONTA PARA AVA:   AINDA NAO - faltam video, relatorio e evidencias
+
+Depois dos itens obrigatorios acima e de um teste ponta a ponta, o projeto fica
+em condicao muito melhor para entrega.

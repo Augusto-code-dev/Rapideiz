@@ -1,0 +1,72 @@
+RAPIDEIZ — DIAGNÓSTICO FINAL DA REVISÃO
+17/11/2026
+
+Referências da revisão
+PDPC_Atividade04.pdf e DIAGNOSTICO_REVISAO.txt
+
+O QUE FOI FEITO
+
+- Reorganizei o frontend, a API e os três workers. O site mostra o andamento
+  do pedido e permite adicionar ou remover itens e disparar dez pedidos.
+  O painel distingue pedidos pendentes, em processamento, concluídos,
+  recusados e com falha técnica.
+- Centralizei o catálogo e os preços na API. O servidor valida os produtos,
+  as quantidades e os dados de entrega. Os valores monetários usam Decimal
+  no Python e DECIMAL no MySQL. O navegador exibe os dados dos clientes
+  como texto.
+- A API salva o pedido no MySQL, publica pedido.criado no RabbitMQ com
+  confirmação do broker e responde HTTP 202 sem aguardar os workers.
+  Se o broker estiver indisponível, a API retorna HTTP 503 com o ID salvo.
+  A publicação fica pendente e é retomada automaticamente.
+- Centralizei a declaração de exchanges, filas e bindings. As filas são
+  duráveis, as mensagens são persistentes e os workers confirmam cada
+  entrega após concluir o processamento. Falhas definitivas seguem para
+  as DLQs. Cada réplica de pagamento aceita um pedido de cada vez.
+- O worker de pagamentos publica pagamento.aprovado ou pagamento.recusado.
+  O worker de notificações registra a criação e o resultado no banco.
+  A recusa por falta de limite também encaminha a mensagem original à DLQ.
+  Em reentregas, os workers preservam os pagamentos concluídos e evitam
+  duplicar registros de notificação.
+- Preparei o Docker Compose para iniciar MySQL, RabbitMQ, API e workers.
+  Atualizei o README de execução, a configuração de exemplo e os testes.
+
+VERIFICAÇÃO EXECUTADA
+
+- Fluxo normal com MySQL e RabbitMQ no Docker. A API retornou HTTP 202
+  e o pedido concluiu pagamento, estoque e notificação.
+- Queda do estoque. Dois pedidos apareceram em Ready na fila do RabbitMQ
+  e foram processados automaticamente após o retorno do worker.
+- DLQ. A falha técnica e o pagamento sem limite chegaram à fila
+  rapideiz.payments.dlq. O pagamento recusado também gerou notificação.
+- Escala. Dez pedidos foram concluídos, com cinco ACKs por réplica de
+  pagamento. O botão de rajada também foi verificado no Microsoft Edge.
+- Reinício do RabbitMQ. O pedido já publicado permaneceu na fila. Outro
+  pedido, criado enquanto o broker estava parado, recebeu HTTP 503 com
+  o ID salvo, foi publicado automaticamente no retorno e concluiu.
+- Compatibilidade. Um pedido de um banco de teste no formato anterior
+  foi preservado após a migração de FLOAT para DECIMAL.
+- Pacote. Extraí Rapideiz_Entrega.zip em outra pasta, validei a configuração
+  do Compose e executei os cinco testes unitários com sucesso.
+
+DIAGNÓSTICO GERAL
+
+O código passou pelos cinco cenários técnicos da atividade e está pronto
+para entrega como projeto. Pagamentos, estoque e notificações são
+simulados. Estoque e pagamentos processam o pedido de forma independente,
+e a notificação é registrada no MySQL. O ZIP contém código, configuração,
+dependências, README e testes. A versão antiga de .venv ficou fora do ZIP.
+
+O QUE AINDA PRECISA SER FEITO
+
+Para completar a entrega acadêmica no AVA, ficam a gravação do vídeo MP4,
+a elaboração do relatório técnico em PDF e o envio dos arquivos.
+Os passos para reproduzir as demonstrações estão no README.md.
+
+EXECUÇÃO
+
+Com o Docker Desktop aberto, extraia o ZIP e execute na pasta do projeto
+
+    docker compose up -d --build --wait
+
+Site  http://localhost:8000
+Painel do RabbitMQ  http://localhost:15672

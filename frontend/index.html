@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rapideiz! Delivery</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header>
+    <div class="logo" aria-hidden="true">R!</div>
+    <div><b>rapideiz<span>!</span></b><small>DELIVERY</small></div>
+    <a href="http://localhost:15672" target="_blank" rel="noopener">RabbitMQ ↗</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <h1>Sua fome <em>não espera.</em></h1>
+        <p>Monte seu pedido e acompanhe as etapas de pagamento, estoque e notificações.</p>
+      </div>
+      <div class="burger" aria-hidden="true">🍔</div>
+    </section>
+
+    <section class="stats" aria-label="Resumo dos pedidos">
+      <article><small>Pedidos recebidos</small><b id="total">0</b></article>
+      <article><small>Pagamentos aprovados</small><b id="approved">0</b></article>
+      <article><small>Em processamento</small><b id="processing">0</b></article>
+      <article><small>Pagamentos recusados</small><b id="refused">0</b></article>
+    </section>
+
+    <div class="layout">
+      <section class="panel">
+        <h2>Monte seu pedido</h2>
+        <div id="menu" class="menu"><p>Carregando cardápio…</p></div>
+
+        <form id="form">
+          <h3>Entrega</h3>
+          <div class="fields">
+            <div>
+              <label for="name">Nome</label>
+              <input id="name" autocomplete="name" required minlength="2" maxlength="120">
+            </div>
+            <div>
+              <label for="phone">Telefone</label>
+              <input id="phone" type="tel" autocomplete="tel" required minlength="8" maxlength="30">
+            </div>
+          </div>
+          <label for="address">Endereço completo</label>
+          <input id="address" autocomplete="street-address" required minlength="8" maxlength="255">
+          <div class="fields">
+            <div>
+              <label for="payment">Forma de pagamento</label>
+              <select id="payment">
+                <option value="pix">PIX</option>
+                <option value="cartao">Cartão</option>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="sem_limite">Cartão sem limite (teste de DLQ)</option>
+              </select>
+            </div>
+            <label class="check"><input type="checkbox" id="failure"> Simular falha técnica</label>
+          </div>
+          <div class="total"><span>Total</span><b id="sum">R$ 0,00</b></div>
+          <button id="send" type="submit" disabled>Finalizar pedido →</button>
+        </form>
+      </section>
+
+      <aside>
+        <section class="panel">
+          <h2>Arquitetura</h2>
+          <div class="node">🛒 <div><b>API Rapideiz!</b><small>Publica pedido.criado</small></div></div>
+          <div class="exchange">TOPIC EXCHANGE · rapideiz.events</div>
+          <div class="node">💳 <div><b>Pagamentos</b><small>Publica pagamento.aprovado ou pagamento.recusado</small></div></div>
+          <div class="node">📦 <div><b>Estoque</b><small>Registra a separação do pedido</small></div></div>
+          <div class="node">🔔 <div><b>Notificações</b><small>Consome pedido.criado e pagamento.*</small></div></div>
+          <div class="dlq">⚠ Dead Letter Exchange / Queues</div>
+          <a href="/docs">API Swagger ↗</a>
+        </section>
+        <section class="panel">
+          <h2>Último pedido</h2>
+          <div id="latest">Nenhum pedido ainda.</div>
+        </section>
+      </aside>
+    </div>
+
+    <section class="panel history">
+      <div class="history-head">
+        <h2>Pedidos recentes</h2>
+        <button id="burst" class="secondary" type="button" disabled>Criar rajada de 10 pedidos</button>
+      </div>
+      <p id="refresh-error" role="status" hidden>Não foi possível atualizar os pedidos. Tentando novamente…</p>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Pedido</th><th>Cliente</th><th>Total</th><th>Status</th>
+              <th>Pagamento</th><th>Estoque</th><th>Notificação</th>
+            </tr>
+          </thead>
+          <tbody id="rows"><tr><td colspan="7">Nenhum pedido.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

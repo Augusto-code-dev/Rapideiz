@@ -1,0 +1,10 @@
+**
+!requirements.txt
+!api/
+!api/*.py
+!frontend/
+!frontend/*.html
+!frontend/*.css
+!frontend/*.js
+!workers/
+!workers/*.py
